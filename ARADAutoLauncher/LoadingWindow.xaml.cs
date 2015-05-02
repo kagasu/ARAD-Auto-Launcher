@@ -68,7 +68,33 @@ namespace ARADLoginTool
                     parameters.Add(new Regex("\\[\"CharCount\"\\] = \"(.*?)\"").Matches(str)[0].Groups[1].Value);
 
                     Process.Start("neoplecustomurl://" + string.Join("/", parameters));
-                    Environment.Exit(0);
+
+                    // Delete Arad.lnk if exists
+                    if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) + "\\Arad.lnk"))
+                    {
+                        File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) + "\\Arad.lnk");
+                    }
+
+                    // monitoring Arad.lnk
+                    var watcher = new FileSystemWatcher();
+                    watcher.Path = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    watcher.Filter = "Arad.lnk";
+                    watcher.NotifyFilter = NotifyFilters.FileName;
+
+                    // exclude subdirectories
+                    watcher.IncludeSubdirectories = false;
+
+                    // start monitoring
+                    var changedResult = watcher.WaitForChanged(WatcherChangeTypes.Created);
+
+                    // Delete Arad.lnk when created
+                    if (changedResult.ChangeType == WatcherChangeTypes.Created)
+                    {
+                        // wait for another process file handle dispose
+                        Thread.Sleep(500);
+                        File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) + "\\Arad.lnk");
+                        Environment.Exit(0);
+                    }
                 }
                 catch (Exception ex)
                 {
