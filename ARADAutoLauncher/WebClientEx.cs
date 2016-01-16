@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace ARADLoginTool
@@ -37,6 +38,7 @@ namespace ARADLoginTool
             {
                 var httpWebRequest = (HttpWebRequest)webRequest;
                 httpWebRequest.CookieContainer = this.cookieContainer;
+                httpWebRequest.Referer = Regex.Replace(httpWebRequest.RequestUri.ToString(),"^(http?://.*?/).*$","$1");
             }
 
             return webRequest;

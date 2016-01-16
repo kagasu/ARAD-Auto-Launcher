@@ -9,8 +9,13 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Forms;
 using System.Windows.Input;
+using System.Windows.Threading;
+using ARADAutoLauncher;
+using MessageBox = System.Windows.MessageBox;
 
 namespace ARADLoginTool
 {
@@ -29,9 +34,11 @@ namespace ARADLoginTool
             this.DragMove();
         }
 
-        private void Window_Initialized(object sender, EventArgs e)
+        private void Window_Initialized(object sender, EventArgs e) 
         {
-            new Thread(() =>
+            OneTimePassWindow otpw = null;
+            DispatcherFrame dispacherFrame = null;
+            var thread = new Thread(() =>
             {
                 try
                 {
@@ -53,7 +60,26 @@ namespace ARADLoginTool
                     data.Add(unique_id, dataJson["id"]);
                     data.Add(unique_password, dataJson["password"]);
                     data.Add("login_key", login_key);
-                    wc.UploadValues("https://arad.nexon.co.jp/login/loginprocess.aspx", data);
+                    str = Encoding.UTF8.GetString( wc.UploadValues("https://arad.nexon.co.jp/login/loginprocess.aspx", data));
+
+                    // When onetimepass require
+                    if( str.Contains( "location.href = 'http://arad.nexon.co.jp/login/login_pass.aspx';" ) ) 
+                    {
+                        wc.DownloadString( "http://arad.nexon.co.jp/login/login_pass.aspx" );
+                        dispacherFrame = new DispatcherFrame( true );
+                        otpw = new OneTimePassWindow();
+                        otpw.Closed += ( o, args ) =>
+                        {
+                            dispacherFrame.Continue = false;
+                        };
+                        otpw.ShowDialog();
+                        Dispatcher.PushFrame( dispacherFrame );
+
+                        var onetimepass = otpw.otp;
+                        data = new NameValueCollection();
+                        data.Add( "nx_pw" , onetimepass);
+                        wc.UploadValues( "http://arad.nexon.co.jp/login/OTPProcess.aspx", data );
+                    }
 
                     str = wc.DownloadString("http://arad.nexon.co.jp/launcher/game/GameStart.aspx");
 
@@ -101,7 +127,10 @@ namespace ARADLoginTool
                     MessageBox.Show(ex.Message);
                     Environment.Exit(0);
                 }
-            }).Start();
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            
         }
 
         private void ButtonExit_Click(object sender, RoutedEventArgs e)
