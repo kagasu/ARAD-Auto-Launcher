@@ -50,22 +50,29 @@ namespace ARADLoginTool
                         wc.Proxy = new WebProxy(string.Format("http://{0}/", dataJson["proxy"]));
                     }
 
-                    var str = wc.DownloadString("http://arad.nexon.co.jp/");
+                    wc.Headers.Add("Referer","http://arad.nexon.co.jp/");
+                    var str = wc.DownloadString("http://www.nexon.co.jp/login/");
 
-                    var unique_id = new Regex("class=\"nexonid\" name=\"(.*?)\"").Matches(str)[0].Groups[1].Value;
-                    var unique_password = new Regex("class=\"password\" name=\"(.*?)\"").Matches(str)[0].Groups[1].Value;
-                    var login_key = new Regex("name=\"login_key\" value=\"(.*?)\"").Matches(str)[0].Groups[1].Value;
+                    var unique_id = new Regex( "return  document.getElementById\\('(.*?)'\\).value;" ).Matches(str)[0].Groups[1].Value;
+                    var unique_password = Regex.Replace(unique_id,"^i","p");
+                    var entm = new Regex( "name=(\"|')entm(\"|') value=(\"|')(.*?)(\"|')" ).Matches(str)[0].Groups[4].Value;
 
                     var data = new NameValueCollection();
+                    data.Add( "entm", entm );
                     data.Add(unique_id, dataJson["id"]);
                     data.Add(unique_password, dataJson["password"]);
-                    data.Add("login_key", login_key);
-                    str = Encoding.UTF8.GetString( wc.UploadValues("https://arad.nexon.co.jp/login/loginprocess.aspx", data));
+                    data.Add( "onetimepass", "" );
+                    data.Add("HiddenUrl","http://arad.nexon.co.jp/");
+                    data.Add( "otp", "" );
+
+                    wc.Headers.Add( "Referer", "http://www.nexon.co.jp/login/" );
+                    str = Encoding.UTF8.GetString( wc.UploadValues( "https://www.nexon.co.jp/login/login_process1.aspx?iframe=true", data));
 
                     // When onetimepass require
-                    if( str.Contains( "location.href = 'http://arad.nexon.co.jp/login/login_pass.aspx';" ) ) 
+                    if( str.Contains( "location.replace(\"https://www.nexon.co.jp/login/otp/index.aspx" ) ) 
+
                     {
-                        wc.DownloadString( "http://arad.nexon.co.jp/login/login_pass.aspx" );
+                        str = wc.DownloadString( new Regex( "location\\.replace\\(\"(https://www.nexon.co.jp/login/otp/index\\.aspx.*?)\"\\)" ).Matches(str)[0].Groups[1].Value );
                         dispacherFrame = new DispatcherFrame( true );
                         otpw = new OneTimePassWindow();
                         otpw.Closed += ( o, args ) =>
@@ -77,8 +84,8 @@ namespace ARADLoginTool
 
                         var onetimepass = otpw.otp;
                         data = new NameValueCollection();
-                        data.Add( "nx_pw" , onetimepass);
-                        wc.UploadValues( "http://arad.nexon.co.jp/login/OTPProcess.aspx", data );
+                        data.Add( "otp" , onetimepass);
+                        wc.UploadValues( new Regex( "action=\"(.*?)\" id=\"otploginform\"" ).Matches( str )[0].Groups[1].Value, data );
                     }
 
                     str = wc.DownloadString("http://arad.nexon.co.jp/launcher/game/GameStart.aspx");
